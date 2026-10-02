@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Model Armor</title>
+<style>
+  :root{
+    --bg:#0e1220; --panel:#161c2e; --panel2:#1d2438; --line:#2a3350;
+    --ink:#e8ecf6; --mut:#9aa6c4; --accent:#5b8cff; --accent2:#7c5cff;
+    --ok:#2bd47d; --bad:#ff5d6c; --warn:#ffb84d;
+    --radius:14px; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 70% -10%,#1b2440 0,transparent 60%),var(--bg);
+       color:var(--ink);font-family:var(--sans);line-height:1.5}
+  .wrap{max-width:1080px;margin:0 auto;padding:28px 16px 64px}
+  header{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:6px}
+  h1{font-size:26px;margin:0;letter-spacing:-.02em}
+  h1 .shield{color:var(--accent)}
+  .sub{color:var(--mut);margin:2px 0 18px;font-size:15px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-left:auto}
+  .chip{font-size:12px;padding:5px 10px;border-radius:999px;border:1px solid var(--line);
+        background:var(--panel);color:var(--mut)}
+  .chip b{color:var(--ink)}
+  .chip.ok{border-color:#1f6b45;color:#9ff0c4}
+  .chip.bad{border-color:#7a2b33;color:#ffb3bb}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+        padding:16px;margin-bottom:16px}
+  .card h2{font-size:14px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin:0 0 12px}
+
+  .presets{display:flex;flex-wrap:wrap;gap:8px}
+  .preset{font-size:13px;padding:8px 12px;border-radius:10px;cursor:pointer;
+          border:1px solid var(--line);background:var(--panel2);color:var(--ink);transition:.15s}
+  .preset:hover{border-color:var(--accent);transform:translateY(-1px)}
+  .preset[data-w="encoding"]{border-left:3px solid var(--warn)}
+  .preset[data-w="multiturn"]{border-left:3px solid var(--accent2)}
+  .preset[data-w="partial"]{border-left:3px solid var(--bad)}
+  .note{margin-top:10px;font-size:13px;color:var(--mut);min-height:18px}
+
+  textarea{width:100%;min-height:84px;resize:vertical;background:var(--panel2);color:var(--ink);
+           border:1px solid var(--line);border-radius:10px;padding:12px;font-family:var(--mono);font-size:13px}
+  .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}
+  label.inl{font-size:13px;color:var(--mut);display:flex;align-items:center;gap:6px}
+  input[type=text]{background:var(--panel2);color:var(--ink);border:1px solid var(--line);
+                   border-radius:8px;padding:7px 10px;font-family:var(--mono);font-size:13px;width:120px}
+  button.act{font-size:14px;font-weight:600;padding:10px 16px;border-radius:10px;cursor:pointer;border:0;color:#fff}
+  .primary{background:linear-gradient(135deg,var(--accent),var(--accent2))}
+  .ghost{background:var(--panel2);border:1px solid var(--line)!important;color:var(--ink)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:760px){.cols{grid-template-columns:1fr}}
+  .verdict{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .badge{font-weight:700;font-size:13px;padding:5px 12px;border-radius:999px}
+  .badge.allow{background:rgba(43,212,125,.15);color:var(--ok);border:1px solid #1f6b45}
+  .badge.block{background:rgba(255,93,108,.15);color:var(--bad);border:1px solid #7a2b33}
+  .badge.idle{background:var(--panel2);color:var(--mut);border:1px solid var(--line)}
+  .meta{font-size:12px;color:var(--mut)}
+  .danger-title{color:var(--bad)} .safe-title{color:var(--ok)}
+  ul.reasons{margin:8px 0 0;padding-left:18px;font-size:13px}
+  ul.reasons li{margin:3px 0}
+  .layer{border-top:1px solid var(--line);margin-top:10px;padding-top:10px}
+  .layer h4{margin:0 0 4px;font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
+  code,.kv{font-family:var(--mono);font-size:12px}
+  .pill{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:6px;
+        padding:2px 7px;margin:2px 4px 0 0;font-family:var(--mono);font-size:11.5px;color:#cfe0ff}
+  .decoded{background:rgba(255,184,77,.08);border:1px solid #6b5120;border-radius:8px;padding:8px;margin-top:6px;
+           font-family:var(--mono);font-size:12px;color:#ffe3b0;white-space:pre-wrap;word-break:break-word}
+  .answer{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;white-space:pre-wrap;font-size:14px}
+  .muted{color:var(--mut)}
+  .flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12px;color:var(--mut);margin-bottom:10px}
+  .step{padding:4px 9px;border-radius:8px;border:1px solid var(--line);background:var(--panel2)}
+  .step.on{border-color:var(--accent);color:var(--ink)}
+  .step.stop{border-color:var(--bad);color:var(--bad)}
+  .spin{display:inline-block;width:13px;height:13px;border:2px solid var(--line);border-top-color:var(--accent);
+        border-radius:50%;animation:s .7s linear infinite;vertical-align:-2px}
+  @keyframes s{to{transform:rotate(360deg)}}
+  .hide{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1><span class="shield">🛡</span> Model Armor</h1>
+    </div>
+    <div class="chips" id="chips">
+      <span class="chip" id="chipHealth">Guard: …</span>
+      <span class="chip" id="chipPolicy">policy: …</span>
+      <span class="chip" id="chipCfg">config: …</span>
+    </div>
+  </header>
+  <p class="sub">A defense-in-depth layer in front of the <b>SecureAI Guard API</b> — it decodes obfuscated
+  injections, reassembles multi-turn attacks, and fails closed. Pick an attack, then compare the Guard alone vs Guard + Armor.</p>
+
+  <div class="card">
+    <h2>1 · Pick an attack</h2>
+    <div class="presets" id="presets"></div>
+    <div class="note" id="presetNote">Each colored bar marks the weakness class: <span style="color:var(--warn)">▍encoding</span>
+      <span style="color:var(--accent2)">▍multi-turn</span> <span style="color:var(--bad)">▍partial/fail-open</span>.</div>
+  </div>
+
+  <div class="card">
+    <h2>2 · Input</h2>
+    <textarea id="text" placeholder="Type a message, or pick a preset above…"></textarea>
+    <div class="row">
+      <label class="inl">session <input type="text" id="sid" value="demo-1"></label>
+      <label class="inl"><input type="checkbox" id="sim"> simulate partial</label>
+      <button class="act primary" id="btnCompare">Compare verdicts</button>
+      <button class="act primary" id="btnChat">Run full chat (Guard + LLM)</button>
+      <button class="act ghost" id="btnSeq" style="display:none">▶ Run multi-turn sequence</button>
+      <button class="act ghost" id="btnReset">Reset session</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>3 · Verdicts</h2>
+    <div class="cols">
+      <div>
+        <div class="meta danger-title" style="font-weight:700;margin-bottom:8px">⚠ Guard API alone (naive integration)</div>
+        <div id="guardOnly">
+          <div class="verdict"><span class="badge idle">idle</span></div>
+          <div class="meta">Sends your raw text straight to <code>/v1/check/prompt</code>.</div>
+        </div>
+      </div>
+      <div>
+        <div class="meta safe-title" style="font-weight:700;margin-bottom:8px">🛡 Guard + Model Armor</div>
+        <div id="armored">
+          <div class="verdict"><span class="badge idle">idle</span></div>
+          <div class="meta">Normalizes, aggregates the session, then checks — and fails closed.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card hide" id="chatCard">
+    <h2>4 · End-to-end pipeline</h2>
+    <div class="flow" id="flow"></div>
+    <div id="chatOut"></div>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+let PRESETS = [];
+
+async function jpost(path, body){
+  const r = await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  return r.json();
+}
+async function jget(path){ const r = await fetch(path); return r.json(); }
+
+function esc(s){return (s??'').toString().replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+// ---- status chips ----
+async function loadHealth(){
+  const h = await jget('/api/health');
+  const ok = h.guard && h.guard.ok;
+  const c = $('#chipHealth'); c.innerHTML = 'Guard: <b>'+(ok?'up':'down')+'</b>';
+  c.className = 'chip '+(ok?'ok':'bad');
+  $('#chipPolicy').innerHTML = 'policy: <b>'+(h.fail_open?'FAIL-OPEN':'fail-closed')+'</b>';
+  const gaps = h.missing_config||[];
+  const cc = $('#chipCfg');
+  cc.innerHTML = gaps.length ? 'config: <b>missing '+gaps.length+'</b>' : 'config: <b>ready</b>';
+  cc.className = 'chip '+(gaps.length?'bad':'ok');
+  cc.title = gaps.join(', ');
+}
+
+// ---- presets ----
+async function loadPresets(){
+  const d = await jget('/api/presets'); PRESETS = d.presets;
+  const box = $('#presets'); box.innerHTML='';
+  PRESETS.forEach(p=>{
+    const b=document.createElement('button');
+    b.className='preset'; b.dataset.w=p.weakness||'';
+    b.textContent=p.label; b.onclick=()=>pick(p);
+    box.appendChild(b);
+  });
+}
+let CURRENT=null;
+function pick(p){
+  CURRENT=p;
+  $('#text').value = p.turns[0];
+  $('#sim').checked = !!p.simulate_partial;
+  $('#presetNote').textContent = p.note || '';
+  $('#btnSeq').style.display = p.turns.length>1 ? 'inline-block' : 'none';
+}
+
+// ---- render a verdict badge ----
+function badge(blocked){ return blocked
+  ? '<span class="badge block">BLOCKED</span>'
+  : '<span class="badge allow">ALLOWED</span>'; }
+
+function renderGuardOnly(res){
+  const g = res.guard||{};
+  let blocked = g.allowed===false;
+  let head;
+  if(!g.ok){ head = '<span class="badge block">ERROR</span>'; }
+  else head = badge(blocked);
+  let html = '<div class="verdict">'+head+
+    '<span class="meta">status: <code>'+esc(g.status||g.error||'—')+'</code></span></div>';
+  html += '<div class="meta">flags: ';
+  html += (g.flags&&g.flags.length)? g.flags.map(f=>'<span class="pill">'+esc(f)+'</span>').join('') : '<span class="muted">none</span>';
+  html += '</div>';
+  html += '<div class="meta" style="margin-top:6px">request_id <code>'+esc(g.request_id||'—')+'</code> · '+
+          (g.latency_ms!=null?g.latency_ms+' ms':'')+'</div>';
+  if(!blocked && g.ok){
+    html += '<div class="meta" style="margin-top:8px;color:var(--bad)">↳ The attack slips through the raw Guard.</div>';
+  }
+  $('#guardOnly').innerHTML = html;
+}
+
+function renderArmored(a){
+  const L=a.layers||{};
+  let html = '<div class="verdict">'+badge(a.blocked)+
+    '<span class="meta">decision by armor</span></div>';
+  html += '<ul class="reasons">'+ (a.reasons||[]).map(r=>'<li>'+esc(r)+'</li>').join('') +'</ul>';
+
+  // Layer 1
+  const n=L.normalization||{};
+  html += '<div class="layer"><h4>Layer 1 · normalization</h4>';
+  if((n.transforms||[]).length) html += n.transforms.map(t=>'<span class="pill">'+esc(t)+'</span>').join('');
+  else html += '<span class="muted kv">no obfuscation detected</span>';
+  if((n.decoded||[]).length) n.decoded.forEach(d=> html += '<div class="decoded">decoded → '+esc(d)+'</div>');
+  html += '</div>';
+
+  // Layer 2
+  const ag=L.aggregation||{};
+  html += '<div class="layer"><h4>Layer 2 · conversation aggregation</h4>';
+  html += '<span class="kv muted">turns considered: <b>'+(ag.turns_considered||0)+'</b></span>';
+  if(ag.effective_intent_preview) html += '<div class="decoded" style="background:rgba(124,92,255,.08);border-color:#3a2d6b;color:#d6ccff">effective intent → '+esc(ag.effective_intent_preview)+'</div>';
+  html += '</div>';
+
+  // Layer 3
+  const pol=L.policy||{};
+  html += '<div class="layer"><h4>Layer 3 · fail-closed policy</h4>';
+  html += '<span class="kv muted">fail_open=<b>'+pol.fail_open+'</b>, guard_partial=<b>'+pol.guard_partial+'</b>, guard_unavailable=<b>'+pol.guard_unavailable+'</b></span>';
+  html += '</div>';
+
+  // local detector
+  const ld=L.local_detector||{};
+  if(ld.flagged){
+    html += '<div class="layer"><h4>local detector</h4>'+ (ld.matches||[]).map(m=>'<span class="pill">'+esc(m)+'</span>').join('') +'</div>';
+  }
+  $('#armored').innerHTML = html;
+}
+
+// ---- actions ----
+async function compare(){
+  const text=$('#text').value.trim(); if(!text) return;
+  const sid=$('#sid').value||'default', sim=$('#sim').checked;
+  $('#guardOnly').innerHTML='<div class="verdict"><span class="badge idle"><span class="spin"></span> checking…</span></div>';
+  $('#armored').innerHTML='<div class="verdict"><span class="badge idle"><span class="spin"></span> checking…</span></div>';
+  // guard-only uses raw text; armored advances the session window.
+  const [g,a] = await Promise.all([
+    jpost('/api/guard-only',{text}),
+    jpost('/api/armored',{session_id:sid,text,simulate_partial:sim})
+  ]);
+  renderGuardOnly(g); renderArmored(a);
+}
+
+async function runSequence(){
+  if(!CURRENT||CURRENT.turns.length<2) return;
+  const sid=$('#sid').value||'default', sim=$('#sim').checked;
+  await jpost('/api/reset',{session_id:sid});
+  for(let i=0;i<CURRENT.turns.length;i++){
+    const text=CURRENT.turns[i];
+    $('#text').value=text;
+    const [g,a]=await Promise.all([
+      jpost('/api/guard-only',{text}),
+      jpost('/api/armored',{session_id:sid,text,simulate_partial:sim})
+    ]);
+    renderGuardOnly(g); renderArmored(a);
+    $('#presetNote').textContent='Turn '+(i+1)+'/'+CURRENT.turns.length+': "'+text+'"';
+    await new Promise(r=>setTimeout(r, 900));
+  }
+}
+
+async function chat(){
+  const text=$('#text').value.trim(); if(!text) return;
+  const sid=$('#sid').value||'default', sim=$('#sim').checked;
+  $('#chatCard').classList.remove('hide');
+  setFlow(['prompt armor','LLM','response armor','deliver'], 0);
+  $('#chatOut').innerHTML='<span class="muted"><span class="spin"></span> running pipeline…</span>';
+  const r=await jpost('/api/chat',{session_id:sid,text,simulate_partial:sim});
+  // also refresh the comparison panels for context
+  const g=await jpost('/api/guard-only',{text}); renderGuardOnly(g);
+  renderArmored(r.prompt_check);
+
+  let out='';
+  if(r.stage==='prompt_blocked'){
+    setFlow(['prompt armor','LLM','response armor','deliver'], -1, 0);
+    out='<div class="verdict">'+badge(true)+'<span class="meta">blocked before reaching the LLM</span></div>';
+  } else if(r.stage==='llm_error'){
+    setFlow(['prompt armor','LLM','response armor','deliver'], 1, 1);
+    out='<div class="meta" style="color:var(--bad)">LLM error: '+esc(r.error)+'</div>';
+  } else if(r.stage==='response_blocked'){
+    setFlow(['prompt armor','LLM','response armor','deliver'], -1, 2);
+    out='<div class="verdict">'+badge(true)+'<span class="meta">model answered, but armor blocked the response</span></div>';
+    out+='<div class="meta" style="margin-top:6px">reasons: '+esc((r.response_check.reasons||[]).join('; '))+'</div>';
+    out+='<div class="answer muted" style="margin-top:8px">[suppressed draft] '+esc(r.raw_answer)+'</div>';
+  } else {
+    setFlow(['prompt armor','LLM','response armor','deliver'], 4);
+    out='<div class="verdict">'+badge(false)+'<span class="meta">delivered to user</span></div>';
+    out+='<div class="answer" style="margin-top:8px">'+esc(r.answer)+'</div>';
+  }
+  $('#chatOut').innerHTML=out;
+}
+
+function setFlow(steps, upto, stopAt){
+  const f=$('#flow'); f.innerHTML='';
+  steps.forEach((s,i)=>{
+    const d=document.createElement('span'); d.className='step';
+    if(stopAt!=null && i===stopAt){ d.className+=' stop'; }
+    else if(upto===4 || i<upto){ d.className+=' on'; }
+    d.textContent=s; f.appendChild(d);
+    if(i<steps.length-1){ const a=document.createElement('span'); a.textContent='→'; f.appendChild(a); }
+  });
+}
+
+$('#btnCompare').onclick=compare;
+$('#btnChat').onclick=chat;
+$('#btnSeq').onclick=runSequence;
+$('#btnReset').onclick=async()=>{ await jpost('/api/reset',{session_id:$('#sid').value||'default'});
+  $('#presetNote').textContent='Session '+($('#sid').value)+' reset.'; };
+
+loadHealth(); loadPresets();
+</script>
+</body>
+</html>

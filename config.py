@@ -1,0 +1,66 @@
+"""Configuration loaded from environment / .env file.
+
+Secrets never live in code. Put real values in `.env` (git-ignored) or export
+them in your shell before running. See `.env.example`.
+"""
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
+_ENV_PATH = Path(__file__).resolve().parent / ".env"
+
+
+def _load_dotenv(path: Path) -> None:
+    """Minimal .env loader (no external deps). Does not override real env vars."""
+    if not path.exists():
+        return
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+_load_dotenv(_ENV_PATH)
+
+
+# --- Guard API -------------------------------------------------------------
+GUARD_URL = os.environ.get("GUARD_URL", "").rstrip("/")
+GUARD_TOKEN = os.environ.get("GUARD_TOKEN", "")
+
+# --- LLM API (OpenAI-compatible) ------------------------------------------
+LLM_API_KEY = os.environ.get("LLM_API_KEY") or os.environ.get("OPENAI_API_KEY", "")
+LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+LLM_MODEL = os.environ.get("LLM_MODEL", "gpt-4o-mini")
+
+# --- Armor policy ----------------------------------------------------------
+# When the Guard returns status="partial" or is unavailable, do we allow (open)
+# or block (closed)? The whole point of layer 3 is that secure default = closed.
+FAIL_OPEN = os.environ.get("FAIL_OPEN", "false").lower() in ("1", "true", "yes")
+
+# How many recent turns to fold into the "effective intent" for layer 2.
+CONVO_WINDOW = int(os.environ.get("CONVO_WINDOW", "6"))
+
+# Network timeout (seconds) for outbound calls.
+HTTP_TIMEOUT = float(os.environ.get("HTTP_TIMEOUT", "20"))
+
+# Server
+HOST = os.environ.get("HOST", "127.0.0.1")
+PORT = int(os.environ.get("PORT", "8000"))
+
+
+def missing() -> list[str]:
+    """Return a list of required settings that are not configured."""
+    gaps = []
+    if not GUARD_URL:
+        gaps.append("GUARD_URL")
+    if not GUARD_TOKEN:
+        gaps.append("GUARD_TOKEN")
+    if not LLM_API_KEY:
+        gaps.append("LLM_API_KEY (or OPENAI_API_KEY)")
+    return gaps
