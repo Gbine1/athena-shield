@@ -48,17 +48,31 @@ Layers 1 (homoglyph/zero-width folding) and the extra normalization are kept as
 defense-in-depth even though this particular Guard already catches those — a
 different or updated Guard may not.
 
-## Run it
+## How to run it
 
+**1. Get the code and set up credentials**
 ```bash
-cd day3-secureai-guard
-cp .env.example .env          # then edit .env with the real GUARD_URL / token / LLM key
-./run.sh                      # or: ../.venv/bin/python server.py
-# open http://127.0.0.1:8000
+git clone https://github.com/cysenanu123-oss/model-armor.git
+cd model-armor
+cp .env.example .env     # then edit .env: GUARD_URL, GUARD_TOKEN, and your own LLM_API_KEY
 ```
+No virtualenv needed — it uses only the Python standard library plus `requests`.
+If `requests` is missing: `pip install requests`.
 
-`.env` is git-ignored. **Never commit secrets.** Use your own OpenAI key; treat
-the key that was shared in chat as compromised and ask the organizers to rotate it.
+**2. Pick how to run it**
+
+| Want | Command | Then |
+|---|---|---|
+| **Web UI** (encoder + mode switch + verdicts) | `python server.py` | open http://127.0.0.1:8000 |
+| **Full CLI demo** (4 acts, for judges) | `python demo.py` | `--auto` = no pauses, `--act 1` = one act |
+| **Check any text** (Guard vs Armor) | `python check.py "your text"` | — |
+| **Raw copy-paste commands** | see `DEMO_COMMANDS.md` | — |
+
+> Use `../.venv/bin/python` instead of `python` if that's where your Python lives.
+> Stop the web server with `pkill -f server.py`.
+
+`.env` is git-ignored. **Never commit secrets.** Use your **own** OpenAI key; treat
+the key shared in the brief as compromised and ask the organizers to rotate it.
 
 ## Using the demo
 
