@@ -85,6 +85,20 @@ the key shared in the brief as compromised and ask the organizers to rotate it.
 5. The **partial** preset uses `simulate_partial` to show fail-open vs fail-closed
    (clearly labelled as a simulation — the Guard verdict is synthetic there).
 
+## Encode / decode, alerts & logs
+
+- **Encode a payload** (section 2): turn plain text into base64 / hex / char-codes,
+  then "Use in attack box". **Decode** reverses it — for transparency, show exactly
+  what an encoded string really says.
+- **Run mode** (section 3): *Their Guard only* / *Your Armor only* / *Both*.
+- **keep session**: off by default so each **Run** is independent; tick it to test a
+  real multi-turn attack where Armor aggregates messages.
+- **Activity log & email alerts** (section 6): every request is logged (audit trail,
+  also in `activity.log`). A **blocked** attempt emails the owner, and you can email
+  the whole log on demand. Email only sends if SMTP is set in `.env`
+  (`SMTP_USER` / `SMTP_PASS` — for Gmail use an **App Password**); otherwise it's
+  recorded in the UI only.
+
 ## API
 
 | Method | Path | Body | Purpose |
@@ -93,7 +107,12 @@ the key shared in the brief as compromised and ask the organizers to rotate it.
 | POST | `/api/armored` | `{session_id, text, simulate_partial?}` | Full armor decision + layer report |
 | POST | `/api/chat` | `{session_id, text, simulate_partial?}` | End-to-end Guard→LLM→Guard |
 | POST | `/api/reset` | `{session_id}` | Clear a conversation window |
+| GET | `/api/logs` | — | Activity log + counts + owner/email status |
+| POST | `/api/alert-email` | `{email}` | Set the owner email for alerts |
+| POST | `/api/email-log` | `{email?}` | Email the activity log now |
 | GET | `/api/health` · `/api/usage` · `/api/presets` | — | Status, quota, demo inputs |
+
+`/api/armored` and `/api/chat` also accept `{reset: true}` to start a fresh session.
 
 ## Files
 

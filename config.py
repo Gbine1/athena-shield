@@ -49,6 +49,17 @@ CONVO_WINDOW = int(os.environ.get("CONVO_WINDOW", "6"))
 # Network timeout (seconds) for outbound calls.
 HTTP_TIMEOUT = float(os.environ.get("HTTP_TIMEOUT", "20"))
 
+# --- Alerts / email ---
+# Owner email gets an alert when a bad attempt is blocked. Can also be set live
+# from the UI. Email only actually sends if SMTP_USER/SMTP_PASS are set.
+OWNER_EMAIL = os.environ.get("OWNER_EMAIL", "")
+SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+SMTP_USER = os.environ.get("SMTP_USER", "")
+SMTP_PASS = os.environ.get("SMTP_PASS", "")
+SMTP_FROM = os.environ.get("SMTP_FROM", "")
+ALERT_MIN_INTERVAL = float(os.environ.get("ALERT_MIN_INTERVAL", "8"))  # seconds between emails
+
 # Server
 HOST = os.environ.get("HOST", "127.0.0.1")
 PORT = int(os.environ.get("PORT", "8000"))

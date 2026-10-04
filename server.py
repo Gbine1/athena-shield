@@ -16,6 +16,7 @@ import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import alerts
 import armor
 import config
 import guard
@@ -74,6 +75,10 @@ class Handler(BaseHTTPRequestHandler):
             })
         if self.path == "/api/usage":
             return self._send_json(guard.usage())
+        if self.path == "/api/logs":
+            return self._send_json({"events": alerts.recent(), "counts": alerts.counts(),
+                                    "owner": config.OWNER_EMAIL,
+                                    "email_enabled": bool(config.SMTP_USER and config.SMTP_PASS)})
         return self._send_json({"error": "not_found"}, 404)
 
     def do_POST(self):
@@ -91,7 +96,21 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send_json({"error": "text_required"}, 400)
             sid = body.get("session_id") or "default"
             sim = bool(body.get("simulate_partial"))
-            return self._send_json(armor.armored_check_prompt(sid, text, sim))
+            if body.get("reset"):
+                armor.reset_session(sid)
+            res = armor.armored_check_prompt(sid, text, sim)
+            dec = res["layers"]["normalization"]["decoded"]
+            alerts.log_event("prompt", res["decision"],
+                             res["guard_on_submitted"].get("flags"),
+                             res["reasons"][0] if res["reasons"] else "",
+                             text, dec[0] if dec else "")
+            return self._send_json(res)
+
+        if self.path == "/api/alert-email":
+            return self._send_json({"ok": True, "owner": alerts.set_owner_email(body.get("email", ""))})
+
+        if self.path == "/api/email-log":
+            return self._send_json(alerts.email_daily_log(body.get("email")))
 
         if self.path == "/api/chat":
             return self._handle_chat(body)
@@ -110,8 +129,15 @@ class Handler(BaseHTTPRequestHandler):
         sid = body.get("session_id") or "default"
         sim = bool(body.get("simulate_partial"))
 
+        if body.get("reset"):
+            armor.reset_session(sid)
         # 1) Armor the inbound prompt.
         prompt_check = armor.armored_check_prompt(sid, text, sim)
+        _dec = prompt_check["layers"]["normalization"]["decoded"]
+        alerts.log_event("prompt", prompt_check["decision"],
+                         prompt_check["guard_on_submitted"].get("flags"),
+                         prompt_check["reasons"][0] if prompt_check["reasons"] else "",
+                         text, _dec[0] if _dec else "")
         if prompt_check["blocked"]:
             return self._send_json({
                 "stage": "prompt_blocked",
@@ -133,6 +159,10 @@ class Handler(BaseHTTPRequestHandler):
 
         # 3) Armor the outbound response.
         response_check = armor.armored_check_response(completion["text"], sim)
+        alerts.log_event("response", response_check["decision"],
+                         response_check["guard"].get("flags"),
+                         response_check["reasons"][0] if response_check["reasons"] else "",
+                         completion["text"], "")
         return self._send_json({
             "stage": "response_blocked" if response_check["blocked"] else "delivered",
             "prompt_check": prompt_check,

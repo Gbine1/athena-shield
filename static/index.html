@@ -119,7 +119,8 @@
           <option value="charcodes">decimal char-codes</option>
         </select>
       </label>
-      <button class="act primary" id="btnEnc">Encode</button>
+      <button class="act primary" id="btnEnc">Encode ↓</button>
+      <button class="act primary" id="btnDec">Decode ↑</button>
       <button class="act ghost" id="btnEncCopy">Copy</button>
       <button class="act ghost" id="btnEncUse">Use in attack box ↓</button>
     </div>
@@ -138,6 +139,7 @@
         </select>
       </label>
       <label class="inl">session <input type="text" id="sid" value="demo-1"></label>
+      <label class="inl"><input type="checkbox" id="keep"> keep session (multi-turn)</label>
       <label class="inl"><input type="checkbox" id="sim"> simulate partial</label>
       <button class="act primary" id="btnCompare">Run</button>
       <button class="act primary" id="btnChat">Full chat (+ LLM)</button>
@@ -170,6 +172,19 @@
     <h2>5 · End-to-end pipeline</h2>
     <div class="flow" id="flow"></div>
     <div id="chatOut"></div>
+  </div>
+
+  <div class="card">
+    <h2>6 · Activity log &amp; email alerts</h2>
+    <div class="row">
+      <label class="inl">owner email <input type="text" id="owner" placeholder="you@example.com" style="width:200px"></label>
+      <button class="act ghost" id="btnOwner">Save</button>
+      <button class="act ghost" id="btnEmailLog">Email me the log</button>
+      <span class="meta" id="logStat"></span>
+    </div>
+    <div class="note">Every request is logged below (your audit trail). A <b>blocked</b> attempt emails the owner
+      — if email is set up in <code>.env</code> (SMTP). Otherwise it's still recorded here.</div>
+    <div id="logBox" style="margin-top:8px;max-height:260px;overflow:auto;font-family:var(--mono);font-size:12px"></div>
   </div>
 </div>
 
@@ -283,14 +298,15 @@ const SPIN='<div class="verdict"><span class="badge idle"><span class="spin"></s
 const OFF=t=>'<div class="verdict"><span class="badge idle">'+t+'</span></div>';
 async function compare(){
   const text=$('#text').value.trim(); if(!text) return;
-  const sid=$('#sid').value||'default', sim=$('#sim').checked, mode=$('#mode').value;
+  const sid=$('#sid').value||'default', sim=$('#sim').checked, mode=$('#mode').value, keep=$('#keep').checked;
   const runG=mode!=='armor', runA=mode!=='guard';
   $('#guardOnly').innerHTML = runG?SPIN:OFF('Their Guard — OFF');
   $('#armored').innerHTML   = runA?SPIN:OFF('Your Armor — OFF');
   const tasks=[];
   if(runG) tasks.push(jpost('/api/guard-only',{text}).then(renderGuardOnly));
-  if(runA) tasks.push(jpost('/api/armored',{session_id:sid,text,simulate_partial:sim}).then(renderArmored));
+  if(runA) tasks.push(jpost('/api/armored',{session_id:sid,text,simulate_partial:sim,reset:!keep}).then(renderArmored));
   await Promise.all(tasks);
+  loadLogs();
 }
 
 // ---- encoder (client-side) ----
@@ -311,9 +327,35 @@ function useEncoded(){
   $('#text').value = frame + o;
   $('#text').scrollIntoView({behavior:'smooth'});
 }
+// decoders (transparency: reverse what we encoded)
+function fromB64(s){try{return decodeURIComponent(escape(atob(s.trim())));}catch(e){return '[not valid base64]';}}
+function fromHex(s){try{const h=s.replace(/[^0-9a-fA-F]/g,'');const b=new Uint8Array(h.match(/../g).map(x=>parseInt(x,16)));return new TextDecoder().decode(b);}catch(e){return '[not valid hex]';}}
+function fromCharcodes(s){try{return s.trim().split(/[\s,]+/).map(n=>String.fromCodePoint(parseInt(n,10))).join('');}catch(e){return '[not valid char-codes]';}}
+function doDecode(){
+  const t=$('#encIn').value.trim(); if(!t) return;
+  const k=$('#encType').value;
+  $('#encOut').value = k==='base64'?fromB64(t): k==='hex'?fromHex(t): fromCharcodes(t);
+}
 $('#btnEnc').onclick=doEncode;
+$('#btnDec').onclick=doDecode;
 $('#btnEncUse').onclick=()=>{ if(!$('#encOut').value) doEncode(); useEncoded(); };
 $('#btnEncCopy').onclick=()=>{ if(!$('#encOut').value) doEncode(); navigator.clipboard.writeText($('#encOut').value); };
+
+// ---- activity log & alerts ----
+async function loadLogs(){
+  const d=await jget('/api/logs'); const c=d.counts||{};
+  $('#logStat').innerHTML = `${c.total||0} events · <span style="color:var(--bad)">${c.blocked||0} blocked</span> · email ${d.email_enabled?'<b style="color:var(--ok)">on</b>':'off (set SMTP in .env)'}`;
+  if(d.owner && !$('#owner').value) $('#owner').value=d.owner;
+  const rows=(d.events||[]).map(e=>{
+    const col=e.decision==='blocked'?'var(--bad)':'var(--ok)';
+    return `<div style="padding:3px 0;border-bottom:1px solid var(--line)"><span style="color:var(--mut)">${esc(e.ts)}</span> `+
+      `<b style="color:${col}">${e.decision.toUpperCase()}</b> <span style="color:var(--mut)">${esc(e.kind)}</span> `+
+      `${(e.flags||[]).map(f=>'<span class="pill">'+esc(f)+'</span>').join('')} ${esc(e.preview)}</div>`;
+  }).join('');
+  $('#logBox').innerHTML = rows || '<span class="muted">no activity yet</span>';
+}
+$('#btnOwner').onclick=async()=>{ const r=await jpost('/api/alert-email',{email:$('#owner').value}); $('#logStat').textContent='owner saved: '+(r.owner||'(cleared)'); };
+$('#btnEmailLog').onclick=async()=>{ $('#logStat').textContent='sending…'; const r=await jpost('/api/email-log',{email:$('#owner').value}); $('#logStat').textContent = r.ok?('sent to '+r.sent_to):(r.note||r.error||'failed'); };
 
 async function runSequence(){
   if(!CURRENT||CURRENT.turns.length<2) return;
@@ -334,11 +376,11 @@ async function runSequence(){
 
 async function chat(){
   const text=$('#text').value.trim(); if(!text) return;
-  const sid=$('#sid').value||'default', sim=$('#sim').checked;
+  const sid=$('#sid').value||'default', sim=$('#sim').checked, keep=$('#keep').checked;
   $('#chatCard').classList.remove('hide');
   setFlow(['prompt armor','LLM','response armor','deliver'], 0);
   $('#chatOut').innerHTML='<span class="muted"><span class="spin"></span> running pipeline…</span>';
-  const r=await jpost('/api/chat',{session_id:sid,text,simulate_partial:sim});
+  const r=await jpost('/api/chat',{session_id:sid,text,simulate_partial:sim,reset:!keep});
   // also refresh the comparison panels for context
   const g=await jpost('/api/guard-only',{text}); renderGuardOnly(g);
   renderArmored(r.prompt_check);
@@ -380,7 +422,7 @@ $('#btnSeq').onclick=runSequence;
 $('#btnReset').onclick=async()=>{ await jpost('/api/reset',{session_id:$('#sid').value||'default'});
   $('#presetNote').textContent='Session '+($('#sid').value)+' reset.'; };
 
-loadHealth(); loadPresets();
+loadHealth(); loadPresets(); loadLogs(); setInterval(loadLogs, 5000);
 </script>
 </body>
 </html>
