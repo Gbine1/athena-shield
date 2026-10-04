@@ -7,26 +7,12 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 _ENV_PATH = Path(__file__).resolve().parent / ".env"
 
 
-def _load_dotenv(path: Path) -> None:
-    """Minimal .env loader (no external deps). Does not override real env vars."""
-    if not path.exists():
-        return
-    for raw in path.read_text(encoding="utf-8").splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        key = key.strip()
-        value = value.strip().strip('"').strip("'")
-        if key and key not in os.environ:
-            os.environ[key] = value
-
-
-_load_dotenv(_ENV_PATH)
+load_dotenv(_ENV_PATH, override=False)
 
 
 # --- Guard API -------------------------------------------------------------
@@ -37,6 +23,17 @@ GUARD_TOKEN = os.environ.get("GUARD_TOKEN", "")
 LLM_API_KEY = os.environ.get("LLM_API_KEY") or os.environ.get("OPENAI_API_KEY", "")
 LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "https://api.openai.com/v1").rstrip("/")
 LLM_MODEL = os.environ.get("LLM_MODEL", "gpt-4o-mini")
+LLM_API_URL = os.environ.get("LLM_API_URL", f"{LLM_BASE_URL}/chat/completions")
+ATHENA_ENV = os.environ.get("ATHENA_ENV", "development")
+SESSION_TTL_MINUTES = max(1, int(os.environ.get("SESSION_TTL_MINUTES", "60")))
+SESSION_MAX_MESSAGES = max(1, min(10, int(os.environ.get("SESSION_MAX_MESSAGES", "10"))))
+SESSION_MAX_CHARS = max(3999, int(os.environ.get("SESSION_MAX_CHARS", "12000")))
+MAX_SESSIONS = max(1, int(os.environ.get("MAX_SESSIONS", "500")))
+GUARD_TEXT_LIMIT = 3999
+MAX_GUARD_CALLS = max(1, int(os.environ.get("MAX_GUARD_CALLS", "8")))
+MAX_DECODE_DEPTH = 3
+MAX_DECODE_VARIANTS = 12
+MAX_DECODE_CHARS = 16000
 
 # --- Armor policy ----------------------------------------------------------
 # When the Guard returns status="partial" or is unavailable, do we allow (open)

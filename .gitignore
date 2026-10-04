@@ -9,3 +9,14 @@ __pycache__/
 *.pyc
 *.pyo
 .venv/
+.pytest_cache/
+.coverage
+htmlcov/
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+frontend/*.tsbuildinfo
+
+slides.md
+ui_prompt.md
+attack_solutions.md

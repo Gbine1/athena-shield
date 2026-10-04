@@ -27,11 +27,13 @@ def _now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
-def log_event(kind, decision, flags=None, reason="", preview="", decoded=""):
+def log_event(kind, decision, flags=None, reason="", preview="", decoded="", audit=None):
     """Record one check; fire an alert if it was blocked."""
     ev = {"ts": _now(), "kind": kind, "decision": decision,
-          "flags": flags or [], "reason": reason,
-          "preview": (preview or "")[:160], "decoded": (decoded or "")[:160]}
+          "flags": flags or [], "reason": "See decision metadata.",
+          "preview": "[payload omitted]" if preview else "", "decoded": ""}
+    if audit:
+        ev['audit'] = audit
     with _LOCK:
         _EVENTS.appendleft(ev)
         try:

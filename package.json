@@ -1,0 +1,13 @@
+{
+  "name": "athena-shield",
+  "version": "2.0.0",
+  "description": "Athena Shield — Defense in depth for SecureAI Guard",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node dev.js",
+    "build": "npm --prefix frontend run build",
+    "test:backend": ".venv\\Scripts\\pytest",
+    "start": "python api.py"
+  }
+}

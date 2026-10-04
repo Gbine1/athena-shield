@@ -29,7 +29,7 @@ def complete(user_text: str, history: list[dict] | None = None) -> dict:
 
     try:
         resp = requests.post(
-            f"{config.LLM_BASE_URL}/chat/completions",
+            config.LLM_API_URL,
             headers={
                 "Authorization": f"Bearer {config.LLM_API_KEY}",
                 "Content-Type": "application/json",
@@ -39,19 +39,16 @@ def complete(user_text: str, history: list[dict] | None = None) -> dict:
             timeout=config.HTTP_TIMEOUT,
         )
     except requests.RequestException as exc:
-        return {"ok": False, "text": "", "error": f"network: {exc}"}
+        return {"ok": False, "text": "", "error": "llm_network"}
 
     if not resp.ok:
-        detail = ""
-        try:
-            detail = resp.json().get("error", {}).get("message", "")
-        except ValueError:
-            detail = resp.text[:200]
-        return {"ok": False, "text": "", "error": f"http_{resp.status_code}: {detail}"}
+        return {"ok": False, "text": "", "error": f"llm_http_{resp.status_code}"}
 
     try:
         text = resp.json()["choices"][0]["message"]["content"]
-    except (ValueError, KeyError, IndexError) as exc:
+    except (ValueError, KeyError, IndexError, TypeError) as exc:
         return {"ok": False, "text": "", "error": f"parse: {exc}"}
 
+    if not isinstance(text, str) or not text.strip():
+        return {"ok": False, "text": "", "error": "llm_invalid_response"}
     return {"ok": True, "text": text, "error": None}

@@ -21,6 +21,7 @@ from __future__ import annotations
 import requests
 
 import config
+from clients.guard_client import parse_verdict
 
 
 def _headers() -> dict:
@@ -31,6 +32,9 @@ def _headers() -> dict:
 
 
 def _call(path: str, text: str) -> dict:
+    if not config.GUARD_URL or not config.GUARD_TOKEN:
+        from clients.guard_client import failure
+        return failure("not_configured")
     url = f"{config.GUARD_URL}{path}"
     try:
         resp = requests.post(
@@ -57,31 +61,7 @@ def _call(path: str, text: str) -> dict:
     except ValueError:
         body = {}
 
-    if resp.status_code == 200 and isinstance(body, dict) and "allowed" in body:
-        return {
-            "ok": True,
-            "allowed": bool(body.get("allowed")),
-            "flags": body.get("flags", []) or [],
-            "status": body.get("status"),
-            "checks": body.get("checks", {}) or {},
-            "request_id": body.get("request_id"),
-            "latency_ms": body.get("latency_ms"),
-            "http_status": 200,
-            "error": None,
-            "retry_after": retry_after,
-        }
-
-    # Error paths (400/401/413/429/502/503 ...).
-    err = None
-    if isinstance(body, dict):
-        err = body.get("error") or body.get("message")
-    err = err or f"http_{resp.status_code}"
-    return {
-        "ok": False, "allowed": None, "flags": [], "status": None,
-        "checks": {}, "request_id": body.get("request_id") if isinstance(body, dict) else None,
-        "latency_ms": None, "http_status": resp.status_code, "error": err,
-        "retry_after": retry_after,
-    }
+    return parse_verdict(body, resp.status_code, retry_after)
 
 
 def check_prompt(text: str) -> dict:

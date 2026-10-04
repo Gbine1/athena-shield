@@ -1,133 +1,162 @@
-# 🛡 Model Armor — hardening the SecureAI Guard API
+# Athena Shield
 
-**SecureAI Hackathon 2026 · Challenge 3**
+Athena Shield extends the team's Model Armor backend for SecureAI Hackathon Challenge 3.
+It protects meaning across representations, quoted context, and conversations.
+The backend is Python 3.11+, FastAPI, Pydantic v2 and async httpx. The existing
+browser page remains available; a UI redesign is a separate task.
 
-Model Armor is a thin, defense-in-depth layer that sits in front of the SecureAI
-Guard API (and the LLM). It demonstrates three concrete weaknesses in a *naive*
-Guard integration and fixes each one, then wraps the whole thing in a working
-Guard → LLM → Guard pipeline with a side-by-side web demo.
+## Four protections
 
+| Module | What it adds |
+|---|---|
+| Encoding Shield | Base64 (including URL-safe and nested), hex, decimal character codes, URL and selected ROT13 decoding. Size/depth/count limits; original and revealed representations are screened. |
+| Normalization Shield | Unicode NFKC, invisible-character removal, inherited confusable mapping, conservative character-separated instruction words, contextual leetspeak and whitespace normalization. |
+| Context Adjudicator | Examines quotation boundaries, analytical framing, negation and execution intent outside quotations. Injection-only research disputes return REVIEW. |
+| Session Shield | Bounded recent messages, intent fragments, combined inspection, decaying risk, TTL and delivered LLM conversation history. Per-session locks serialize checks and chat. |
+
+A shared policy aggregates findings and Guard verdicts. The application fails closed
+on partial checks, malformed responses, timeouts, quota errors and inspection limits.
+`FAIL_OPEN` cannot weaken the new policy or the compatibility API.
+
+```text
+User text + bounded session state
+  -> original / decoded / normalized representations
+  -> context and session analysis
+  -> SecureAI Guard prompt checks + shared policy
+  -> permitted original user text and delivered history -> LLM
+  -> Guard response checks + Athena output inspection
+  -> screened answer, or metadata-only refusal
 ```
-User ──► [Model Armor pre-hook] ──► Guard /check/prompt ──► LLM API
-                                                               │
-User ◄── [Model Armor post-hook] ◄── Guard /check/response ◄──┘
+
+Decoded instructions are inspection data. They never replace the original user
+message sent to the LLM. Blocked output is omitted from the response and history.
+
+## Evidence
+
+See [docs/FINDINGS.md](docs/FINDINGS.md) and the unchanged `attack_tests.md`.
+Your transcript establishes separator/leetspeak bypasses, context false positives,
+and individually allowed session fragments. It also shows that the tested Base64,
+hex, URL, zero-width and full-width prompts were **blocked**. The earlier teammate
+encoding observations remain in `docs/MODEL_ARMOR_ORIGINAL.md` and
+`presets.LEGACY_PRESETS`. No claim is made that every encoding bypasses the Guard.
+
+## Install and run (Windows PowerShell)
+
+```powershell
+python -m venv .venv
+.venv/Scripts/python -m pip install -r requirements.txt
+Copy-Item .env.example .env  # only if .env does not exist
+# Edit .env with your Guard URL, team token and LLM credentials.
+.venv/Scripts/python server.py
 ```
 
-## The headline weakness (verified live)
+API documentation: http://127.0.0.1:8000/docs
+Existing demo page: http://127.0.0.1:8000/
+Alternative launch: `.venv/Scripts/python -m uvicorn server:app --host 127.0.0.1 --port 8000`
+Use one worker: session state is in memory. On Unix use `.venv/bin/python`.
 
-**The Guard classifies surface text but does not decode encoded payloads.** We
-probed the live Guard and confirmed that malicious content — *including genuinely
-harmful content, not just injections* — passes straight through when encoded:
+Configuration:
 
-| Vector | Guard verdict on raw text | Armor |
-|---|---|---|
-| Base64 injection (framed "decode and follow") | ✅ **allowed** | 🛡 blocked |
-| Hex-encoded injection (raw) | ✅ **allowed** | 🛡 blocked |
-| Decimal char-codes injection | ✅ **allowed** | 🛡 blocked |
-| Double / nested base64 | ✅ **allowed** | 🛡 blocked |
-| **Harmful content in base64** (bomb-making ask) | ✅ **allowed** | 🛡 blocked |
-| Multi-turn **split** base64 (fragment per message) | ✅ **allowed** each | 🛡 blocked on reassembly |
-| Plain-text injection (control) | 🚫 blocked | 🛡 blocked |
-| Zero-width / homoglyph / base32 / reversed / foreign-language | 🚫 blocked | 🛡 blocked |
+- `GUARD_URL`, `GUARD_TOKEN`: supplied Guard endpoint and team token.
+- `LLM_API_KEY`: completion credentials; `OPENAI_API_KEY` remains a fallback.
+- `LLM_API_URL`: optional full chat-completions endpoint. Otherwise use
+  `LLM_BASE_URL` (default `https://api.openai.com/v1`) plus `/chat/completions`.
+- `LLM_MODEL`: defaults to the teammate's `gpt-4o-mini` setting.
+- `ATHENA_ENV=development`: permits the legacy partial-check simulation.
+- `SESSION_TTL_MINUTES=60`, `SESSION_MAX_MESSAGES=10`, `SESSION_MAX_CHARS=12000`.
+- `MAX_SESSIONS=500`, `MAX_GUARD_CALLS=8`, `HTTP_TIMEOUT=20`.
+- Optional SMTP settings retain the existing owner-alert and email-log functionality.
 
-So the Guard is actually robust against surface obfuscation (zero-width,
-homoglyphs, non-English) — it only falls down when the payload is **encoded into
-a different alphabet** it doesn't decode. That is the gap Armor closes.
-
-## The three defense layers
-
-| # | Layer | What it does | Addresses |
-|---|---|---|---|
-| 1 | **Normalization + decoding** | Strip invisibles, fold homoglyphs (NFKC + confusables), then decode base64 / hex / decimal char-codes / ROT13, recursively for nesting — and check the *revealed* content | the encoding bypass above |
-| 2 | **Conversation-aware aggregation** | The Guard's guide says "send only the newest user message", so a payload split across turns is never seen whole. Armor keeps a per-session window, reassembles it, then decodes — catching split-base64 | multi-turn split attacks |
-| 3 | **Fail-closed policy** | When the Guard returns `status:"partial"` or is unavailable, Armor blocks by default instead of failing open | insecure default handling |
-
-A small local injection detector runs over the *revealed* text too, so a decoded
-payload is caught instantly even if the Guard's own classifier is lenient on it.
-Layers 1 (homoglyph/zero-width folding) and the extra normalization are kept as
-defense-in-depth even though this particular Guard already catches those — a
-different or updated Guard may not.
-
-## How to run it
-
-**1. Get the code and set up credentials**
-```bash
-git clone https://github.com/cysenanu123-oss/model-armor.git
-cd model-armor
-cp .env.example .env     # then edit .env: GUARD_URL, GUARD_TOKEN, and your own LLM_API_KEY
-```
-No virtualenv needed — it uses only the Python standard library plus `requests`.
-If `requests` is missing: `pip install requests`.
-
-**2. Pick how to run it**
-
-| Want | Command | Then |
-|---|---|---|
-| **Web UI** (encoder + mode switch + verdicts) | `python server.py` | open http://127.0.0.1:8000 |
-| **Full CLI demo** (4 acts, for judges) | `python demo.py` | `--auto` = no pauses, `--act 1` = one act |
-| **Check any text** (Guard vs Armor) | `python check.py "your text"` | — |
-| **Raw copy-paste commands** | see `DEMO_COMMANDS.md` | — |
-
-> Use `../.venv/bin/python` instead of `python` if that's where your Python lives.
-> Stop the web server with `pkill -f server.py`.
-
-`.env` is git-ignored. **Never commit secrets.** Use your **own** OpenAI key; treat
-the key shared in the brief as compromised and ask the organizers to rotate it.
-
-## Using the demo
-
-1. **Pick an attack** (presets). Colored bars mark the weakness class.
-2. **Compare verdicts** — left panel = Guard alone on raw text (the attack slips
-   through); right panel = Guard + Armor (blocked, with a per-layer breakdown).
-3. **Run full chat** — end-to-end pipeline: prompt armor → LLM → response armor.
-4. For the **multi-turn** preset, use **▶ Run multi-turn sequence** to watch the
-   Guard allow each benign fragment while Armor blocks once the attack assembles.
-5. The **partial** preset uses `simulate_partial` to show fail-open vs fail-closed
-   (clearly labelled as a simulation — the Guard verdict is synthetic there).
-
-## Encode / decode, alerts & logs
-
-- **Encode a payload** (section 2): turn plain text into base64 / hex / char-codes,
-  then "Use in attack box". **Decode** reverses it — for transparency, show exactly
-  what an encoded string really says.
-- **Run mode** (section 3): *Their Guard only* / *Your Armor only* / *Both*.
-- **keep session**: off by default so each **Run** is independent; tick it to test a
-  real multi-turn attack where Armor aggregates messages.
-- **Activity log & email alerts** (section 6): every request is logged (audit trail,
-  also in `activity.log`). A **blocked** attempt emails the owner, and you can email
-  the whole log on demand. Email only sends if SMTP is set in `.env`
-  (`SMTP_USER` / `SMTP_PASS` — for Gmail use an **App Password**); otherwise it's
-  recorded in the UI only.
+Environment variables override `.env`. Never commit `.env`.
 
 ## API
 
-| Method | Path | Body | Purpose |
-|---|---|---|---|
-| POST | `/api/guard-only` | `{text}` | Guard verdict on **raw** text (the naive path) |
-| POST | `/api/armored` | `{session_id, text, simulate_partial?}` | Full armor decision + layer report |
-| POST | `/api/chat` | `{session_id, text, simulate_partial?}` | End-to-end Guard→LLM→Guard |
-| POST | `/api/reset` | `{session_id}` | Clear a conversation window |
-| GET | `/api/logs` | — | Activity log + counts + owner/email status |
-| POST | `/api/alert-email` | `{email}` | Set the owner email for alerts |
-| POST | `/api/email-log` | `{email?}` | Email the activity log now |
-| GET | `/api/health` · `/api/usage` · `/api/presets` | — | Status, quota, demo inputs |
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/health` | Local liveness, no network call |
+| GET | `/ready` | Configuration readiness (503 if required settings are absent) |
+| POST | `/api/v1/athena/check` | Evaluate `{text, session_id?}` |
+| POST | `/api/v1/demo/compare` | Raw Guard verdict and Athena result, reusing the raw check |
+| POST | `/api/v1/athena/chat` | Gated completion with screened output and conversation history |
+| POST | `/api/v1/athena/reset` | Clear security and chat state for `{session_id}` |
+| GET | `/api/health`, `/api/usage`, `/api/presets` | Guard health, quota and synthetic examples |
 
-`/api/armored` and `/api/chat` also accept `{reset: true}` to start a fresh session.
+The check response includes `decision`, `permitted`, `risk_score`, original text,
+normalized and decoded variants, typed findings, context evidence, all Guard results,
+request IDs, session summary and measured latency. Inspection endpoints intentionally
+return submitted content to the caller; application audit logs do not.
 
-## Files
+Decisions:
 
-- `config.py` — env/`.env` loading, policy knobs
-- `guard.py` — Guard API client (normalized responses, handles 429/5xx/partial)
-- `llm.py` — OpenAI-compatible chat client
-- `armor.py` — the three layers + orchestration
-- `presets.py` — safe, injection-style demo payloads (no real harmful data)
-- `server.py` — stdlib HTTP server + routing
-- `static/index.html` — the demo UI
+- `ALLOW`: required checks cleared without additional signals.
+- `WARN`: checks cleared, but transformations or intent fragments deserve visibility.
+- `REVIEW`: analytical injection dispute or ambiguous risk; completion is held.
+- `BLOCK`: detected attack, Guard rejection, incomplete screening or resource limit.
+- `SAFE_ANALYSIS`: reserved schema value. This release uses REVIEW, and does not
+  implement a restricted analysis execution mode or an approval endpoint.
 
-## Honesty notes (for the judges)
+Only ALLOW and WARN can call the LLM. A request never becomes executable through
+an API-supplied mode, system prompt, or simulated verdict. The application exposes
+no tools to the model. The old `/api/armored`, `/api/chat`, `/api/reset`, logs and
+email routes remain available. Legacy Guard-only chat is disabled; use the safe
+comparison endpoint. Legacy UI labels do not yet distinguish REVIEW from BLOCK.
 
-- Rate limits: ~30 req/min, 1000/day. The compare view makes **2** Guard calls;
-  the sequence runner makes 2 per turn. Measured latency is shown per request.
-- The local detector is a regex safety net, **not** the main defense — the Guard
-  remains the primary classifier; Armor's job is to give it text it can actually read.
-- No real personal data is ever sent; all payloads are benign prompt-injection strings.
+## Tests and demos
+
+```powershell
+.venv/Scripts/python -m pytest -q -p no:cacheprovider
+.venv/Scripts/python demo.py --offline --auto
+```
+
+Normal tests use mocked Guard/LLM clients and forbid network calls. Unit tests,
+integration tests and live tests are separated. Live tests are skipped by default:
+
+```powershell
+$env:RUN_LIVE_GUARD_TESTS='1'
+.venv/Scripts/python -m pytest tests/live -q -p no:cacheprovider
+Remove-Item Env:RUN_LIVE_GUARD_TESTS
+```
+
+That opt-in test makes one benign Guard request. To compare the four findings live,
+run `demo.py --act 1 --auto` through `--act 4 --auto`; see
+[DEMO_COMMANDS.md](DEMO_COMMANDS.md) for exact API commands. `--offline` prominently
+labels simulated results and is not evidence of a live bypass.
+
+## Logging and limits
+
+Audit records contain request IDs, decisions, risk, finding categories, Guard/Athena
+latencies and a session hash. The compatibility activity log contains metadata only;
+email alerts likewise omit prompt and response contents. History is in memory and
+expires; the local activity file is an append-only demo log, without rotation.
+
+The supplied guide lists a limit below 4,000 characters, 30 requests/minute and
+1,000/day. Each different representation may require a Guard call. The comparator
+reuses the raw result; `Retry-After` establishes a cooldown instead of a retry storm.
+The API accepts up to 3,999 characters per user message. Larger internal inspection
+representations are checked in overlapping chunks, with a bounded call budget.
+If full screening cannot fit that budget, the request is blocked explicitly.
+
+## Known limitations
+
+This is a local hackathon prototype, not a complete security guarantee. Quote-scope
+and fragment composition detection are deterministic heuristics. Common encodings
+are supported; arbitrary ciphers and all semantic attacks are not. Context false
+positives are held for review rather than automatically answered. Large/complex
+histories may exhaust the screening budget. Risk decays with time and benign turns;
+it is explanatory evidence and never overrides a current malicious finding.
+
+Sessions are bounded, expire after inactivity and are lost on restart. This release
+has no authentication or ownership binding for user-chosen session IDs; keep the
+server on loopback. Authentication, shared storage and operational log retention are
+future deployment work. Current live bypass rates and LLM compliance need explicit
+live validation with valid credentials. The UI and historical pitch notes will be
+updated separately.
+
+## Source map
+
+- `api.py`, `server.py`: FastAPI routes, startup and legacy compatibility.
+- `security/`: four protection modules, schemas, policy, orchestration and adapter.
+- `clients/`: async Guard and LLM clients.
+- `armor.py`, `guard.py`, `llm.py`: retained compatibility interfaces and planted demo canary.
+- `alerts.py`, `config.py`, `presets.py`: configuration, metadata logs and demo inputs.
+- `tests/`: offline regressions plus explicit opt-in live smoke test.
