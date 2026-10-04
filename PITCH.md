@@ -53,6 +53,47 @@ So lean into the *story* and the *live "aha" moment*:
 
 ---
 
+## 3.5 How to use the app — what every section does
+
+When the app opens in the browser, you scroll down through numbered sections.
+Here's what each one is, in plain words:
+
+- **Top bar (status chips):** little labels showing the guard is "up", the policy is
+  "fail-closed", and config is "ready". Green = good to go.
+
+- **Section 1 — Pick an attack:** ready-made example attacks (buttons). Click one and it
+  fills everything in for you. The coloured bars just group them by type. *Start here.*
+
+- **Section 2 — Encode a payload:** your "disguise machine".
+  - Type any sentence in the top box.
+  - Choose **base64 / hex / char-codes** (the type of disguise).
+  - **Encode ↓** turns it into secret code. **Decode ↑** turns code back to plain text.
+  - **Copy** copies the result; **Use in attack box ↓** drops it into Section 3 ready to send.
+
+- **Section 3 — Send a message:** the control panel.
+  - The big box is the message that gets sent.
+  - **run** dropdown — *the most important control*: **Their Guard only** (test their system),
+    **Your Armor only** (test ours), or **Both** (compare side by side).
+  - **Run** = check the message. **Full chat (+ LLM)** = actually send it to the AI and see its reply.
+  - **keep session** = leave OFF for normal tests (each run is fresh). Turn ON only for the
+    multi-turn preset. **Reset session** clears memory.
+
+- **Section 4 — Verdicts:** the result, shown as two cards side by side.
+  - Left = **THEIR Guard** (red "ALLOWED" means the attack slipped through).
+  - Right = **YOUR Armor** (green "BLOCKED" means you caught it). This is the money shot.
+
+- **Section 5 — End-to-end pipeline:** appears when you click **Full chat**. Shows the AI's
+  actual reply — and warns in red if the AI "gave in" to the attack.
+
+- **Section 6 — Activity log & email alerts:** the "real product" part.
+  - Type the **owner email** and click **Save** → that person gets an email on every blocked attack.
+  - **Email me the log** sends the full history. The list below is your live audit trail.
+
+**The only buttons you truly need for the demo:** a preset in Section 1, the **run** dropdown
+in Section 3, and **Run** / **Full chat**. Everything else is bonus.
+
+---
+
 ## 4. The live demo — exactly what to click and say
 
 Open the app in the browser (someone techie runs `python server.py`; you just use it).
