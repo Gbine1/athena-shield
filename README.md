@@ -40,20 +40,26 @@ hex, URL, zero-width and full-width prompts were **blocked**. The earlier teamma
 encoding observations remain in `docs/MODEL_ARMOR_ORIGINAL.md` and
 `presets.LEGACY_PRESETS`. No claim is made that every encoding bypasses the Guard.
 
-## Install and run (Windows PowerShell)
+## Install and run
 
-```powershell
+Backend (Python 3.11+). Use `.venv/Scripts/python` on Windows, `.venv/bin/python` on Unix.
+
+```bash
 python -m venv .venv
-.venv/Scripts/python -m pip install -r requirements.txt
-Copy-Item .env.example .env  # only if .env does not exist
-# Edit .env with your Guard URL, team token and LLM credentials.
-.venv/Scripts/python server.py
+.venv/bin/python -m pip install -r requirements.txt
+cp .env.example .env     # add GUARD_URL, GUARD_TOKEN, LLM_API_KEY (+ optional SMTP)
+.venv/bin/python server.py            # serves UI + API on http://127.0.0.1:8000
 ```
 
-API documentation: http://127.0.0.1:8000/docs
-Existing demo page: http://127.0.0.1:8000/
-Alternative launch: `.venv/Scripts/python -m uvicorn server:app --host 127.0.0.1 --port 8000`
-Use one worker: session state is in memory. On Unix use `.venv/bin/python`.
+Frontend: the backend serves the pre-built `frontend/dist/`. Only rebuild if you change it:
+
+```bash
+cd frontend && npm install && npm run build
+```
+
+- UI: http://127.0.0.1:8000 · API docs: http://127.0.0.1:8000/docs
+- One worker only (sessions are in memory). Docker: `docker build -t athena . && docker run -p 8000:8000 --env-file .env athena`.
+- **Email alerts**: set the owner address and send the log from the **Event Stream** page. Real delivery needs SMTP in `.env`; otherwise alerts are recorded in the UI.
 
 Configuration:
 

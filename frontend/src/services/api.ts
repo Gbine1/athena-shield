@@ -28,7 +28,9 @@ export const resetSession = (sid: string) => request<{ ok: boolean }>('/api/v1/a
 export const healthCheck = () => request<{ status: string }>('/health', undefined, 5000)
 export const guardHealth = () => request<{ guard: { ok: boolean }; missing_config: string[] }>('/api/health', undefined, 25000)
 export const getPresets = () => request<{ presets: Preset[] }>('/api/presets', undefined, 6000)
-export const getLogs = () => request<{ events: AuditEvent[] }>('/api/logs', undefined, 6000)
+export const getLogs = () => request<{ events: AuditEvent[]; counts?: { total: number; blocked: number; allowed: number }; owner?: string; email_enabled?: boolean }>('/api/logs', undefined, 6000)
+export const setAlertEmail = (email: string) => request<{ ok: boolean; owner: string }>('/api/alert-email', { email })
+export const emailLog = (email?: string) => request<{ ok: boolean; sent_to?: string | null; events?: number; note?: string | null; error?: string }>('/api/email-log', { email: email ?? '' }, 20000)
 export async function readiness() {
   try { return await request<{ ready: boolean; missing_config: string[] }>('/ready', undefined, 5000) }
   catch (e) { if (e instanceof ApiError && e.status === 503) return { ready: false, missing_config: [] }; throw e }
