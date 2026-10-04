@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: athena-shield
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: GUARD_URL
+        sync: false
+      - key: GUARD_TOKEN
+        sync: false
+      - key: LLM_API_KEY
+        sync: false
+      - key: LLM_BASE_URL
+        value: https://api.openai.com/v1
+      - key: LLM_MODEL
+        value: gpt-4o-mini
+      - key: ATHENA_ENV
+        value: production

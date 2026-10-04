@@ -58,7 +58,7 @@ SMTP_FROM = os.environ.get("SMTP_FROM", "")
 ALERT_MIN_INTERVAL = float(os.environ.get("ALERT_MIN_INTERVAL", "8"))  # seconds between emails
 
 # Server
-HOST = os.environ.get("HOST", "127.0.0.1")
+HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8000"))
 
 
