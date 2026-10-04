@@ -131,6 +131,26 @@ class Handler(BaseHTTPRequestHandler):
 
         if body.get("reset"):
             armor.reset_session(sid)
+
+        # NAIVE path: only THEIR Guard gates the model (mode="guard"). This is how
+        # you see the model's actual response — and the fake-secret leak — because
+        # an encoded attack passes the Guard and reaches the model unprotected.
+        if body.get("mode") == "guard":
+            gp = guard.check_prompt(text)
+            blocked = gp.get("ok") and gp.get("allowed") is False
+            alerts.log_event("prompt (their Guard only)", "blocked" if blocked else "allowed",
+                             gp.get("flags"), "naive app — no Armor", text, "")
+            if blocked:
+                return self._send_json({"stage": "guard_blocked", "mode": "guard",
+                                        "guard": gp, "answer": None})
+            completion = llm.complete(text)
+            if not completion["ok"]:
+                return self._send_json({"stage": "llm_error", "mode": "guard",
+                                        "guard": gp, "answer": None, "error": completion["error"]})
+            leaked = llm.CANARY.split("=")[-1][:12] in completion["text"]
+            return self._send_json({"stage": "delivered", "mode": "guard", "guard": gp,
+                                    "answer": completion["text"], "leaked": leaked})
+
         # 1) Armor the inbound prompt.
         prompt_check = armor.armored_check_prompt(sid, text, sim)
         _dec = prompt_check["layers"]["normalization"]["decoded"]

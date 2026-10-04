@@ -376,31 +376,39 @@ async function runSequence(){
 
 async function chat(){
   const text=$('#text').value.trim(); if(!text) return;
-  const sid=$('#sid').value||'default', sim=$('#sim').checked, keep=$('#keep').checked;
+  const sid=$('#sid').value||'default', sim=$('#sim').checked, keep=$('#keep').checked, mode=$('#mode').value;
+  const guardMode = mode==='guard';
+  const steps = guardMode ? ['their Guard','LLM','deliver'] : ['prompt armor','LLM','response armor','deliver'];
   $('#chatCard').classList.remove('hide');
-  setFlow(['prompt armor','LLM','response armor','deliver'], 0);
+  setFlow(steps, 0);
   $('#chatOut').innerHTML='<span class="muted"><span class="spin"></span> running pipeline…</span>';
-  const r=await jpost('/api/chat',{session_id:sid,text,simulate_partial:sim,reset:!keep});
-  // also refresh the comparison panels for context
+  const r=await jpost('/api/chat',{session_id:sid,text,simulate_partial:sim,reset:!keep,mode});
   const g=await jpost('/api/guard-only',{text}); renderGuardOnly(g);
-  renderArmored(r.prompt_check);
+  if(r.prompt_check) renderArmored(r.prompt_check);
+  loadLogs();
 
   let out='';
-  if(r.stage==='prompt_blocked'){
-    setFlow(['prompt armor','LLM','response armor','deliver'], -1, 0);
-    out='<div class="verdict">'+badge(true)+'<span class="meta">blocked before reaching the LLM</span></div>';
+  if(r.stage==='guard_blocked'){
+    setFlow(steps,-1,0);
+    out='<div class="verdict">'+badge(true)+'<span class="meta">THEIR Guard blocked it — model never called</span></div>';
+  } else if(r.stage==='prompt_blocked'){
+    setFlow(steps,-1,0);
+    out='<div class="verdict">'+badge(true)+'<span class="meta">YOUR Armor blocked it before the LLM</span></div>';
   } else if(r.stage==='llm_error'){
-    setFlow(['prompt armor','LLM','response armor','deliver'], 1, 1);
+    setFlow(steps,1,1);
     out='<div class="meta" style="color:var(--bad)">LLM error: '+esc(r.error)+'</div>';
   } else if(r.stage==='response_blocked'){
-    setFlow(['prompt armor','LLM','response armor','deliver'], -1, 2);
-    out='<div class="verdict">'+badge(true)+'<span class="meta">model answered, but armor blocked the response</span></div>';
+    setFlow(steps,-1,2);
+    out='<div class="verdict">'+badge(true)+'<span class="meta">model answered, but Armor blocked the response</span></div>';
     out+='<div class="meta" style="margin-top:6px">reasons: '+esc((r.response_check.reasons||[]).join('; '))+'</div>';
     out+='<div class="answer muted" style="margin-top:8px">[suppressed draft] '+esc(r.raw_answer)+'</div>';
   } else {
-    setFlow(['prompt armor','LLM','response armor','deliver'], 4);
-    out='<div class="verdict">'+badge(false)+'<span class="meta">delivered to user</span></div>';
-    out+='<div class="answer" style="margin-top:8px">'+esc(r.answer)+'</div>';
+    setFlow(steps, steps.length);
+    const who = guardMode ? 'THEIR Guard only — no Armor' : 'through your Armor';
+    out='<div class="verdict">'+badge(false)+'<span class="meta">model reply delivered ('+who+')</span></div>';
+    if(r.leaked) out+='<div class="meta" style="color:var(--bad);font-weight:700;margin-top:6px">⚠ SECRET LEAKED — the model exposed the planted canary! This is what your Armor prevents.</div>';
+    out+='<div class="meta" style="margin:8px 0 4px">🤖 Model response:</div>';
+    out+='<div class="answer" style="margin-top:4px">'+esc(r.answer)+'</div>';
   }
   $('#chatOut').innerHTML=out;
 }
