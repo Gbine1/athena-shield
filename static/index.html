@@ -406,7 +406,7 @@ async function chat(){
     setFlow(steps, steps.length);
     const who = guardMode ? 'THEIR Guard only — no Armor' : 'through your Armor';
     out='<div class="verdict">'+badge(false)+'<span class="meta">model reply delivered ('+who+')</span></div>';
-    if(r.leaked) out+='<div class="meta" style="color:var(--bad);font-weight:700;margin-top:6px">⚠ SECRET LEAKED — the model exposed the planted canary! This is what your Armor prevents.</div>';
+    if(r.leaked) out+='<div class="meta" style="color:var(--bad);font-weight:700;margin-top:6px">⚠ ATTACK SUCCEEDED — '+esc(r.leak_reason||'the model was compromised')+'. This is what your Armor prevents.</div>';
     out+='<div class="meta" style="margin:8px 0 4px">🤖 Model response:</div>';
     out+='<div class="answer" style="margin-top:4px">'+esc(r.answer)+'</div>';
   }
