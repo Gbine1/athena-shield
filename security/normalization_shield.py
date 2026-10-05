@@ -39,7 +39,11 @@ def _clean_text(text: str) -> tuple[str, list[str]]:
 
 _WORDS = ("ignore", "previous", "instructions", "disregard", "system", "reveal",
           "override", "bypass", "disable", "safety", "prompt", "password", "secret",
-          "forget", "rules", "restrictions", "developer", "unfiltered")
+          "forget", "rules", "restrictions", "developer", "unfiltered",
+          # Credential requests are a separate intent family from prompt injection.
+          "api", "key", "keys", "credential", "credentials", "token", "tokens",
+          "passwords", "secrets", "give", "send", "provide", "share", "show",
+          "tell", "list", "return", "disclose", "dump", "extract")
 _SEPARATED = [(word, re.compile(r"(?<!\w)" + r"[\s._/\-]+".join(word) + r"(?!\w)", re.I))
               for word in _WORDS]
 _LEET_ALTS = {"i": "[i1!]", "l": "[l1]", "o": "[o0]", "e": "[e3]", "a": "[a4@]",

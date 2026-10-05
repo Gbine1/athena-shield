@@ -10,7 +10,7 @@ browser page remains available; a UI redesign is a separate task.
 | Module | What it adds |
 |---|---|
 | Encoding Shield | Base64 (including URL-safe and nested), hex, decimal character codes, URL and selected ROT13 decoding. Size/depth/count limits; original and revealed representations are screened. |
-| Normalization Shield | Unicode NFKC, invisible-character removal, inherited confusable mapping, conservative character-separated instruction words, contextual leetspeak and whitespace normalization. |
+| Normalization Shield | Unicode NFKC, invisible-character removal, inherited confusable mapping, character-separated instruction and credential-request language, contextual leetspeak and whitespace normalization. |
 | Context Adjudicator | Examines quotation boundaries, analytical framing, negation and execution intent outside quotations. Injection-only research disputes return REVIEW. |
 | Session Shield | Bounded recent messages, intent fragments, combined inspection, decaying risk, TTL and delivered LLM conversation history. Per-session locks serialize checks and chat. |
 
