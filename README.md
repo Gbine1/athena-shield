@@ -42,27 +42,141 @@ encoding observations remain in `docs/MODEL_ARMOR_ORIGINAL.md` and
 
 ## Install and run
 
-Backend (Python 3.11+). Use `.venv/Scripts/python` on Windows, `.venv/bin/python` on Unix.
+### What you need
+
+- Python **3.11 or newer**, with `pip` and `venv` available.
+- The project downloaded or cloned, and a terminal opened in the project root
+  (the folder containing `server.py` and `requirements.txt`).
+- Internet access to install dependencies and to call the Guard and LLM services.
+- A Guard endpoint (`GUARD_URL`), team token (`GUARD_TOKEN`), and LLM API key
+  (`LLM_API_KEY`) for live checks and chat. Offline tests and demos need no credentials.
+- Node.js **22.x** with npm only if you want to edit or rebuild the React frontend.
+  The included `frontend/dist/` is served by Python, so Node.js is not required
+  to run the existing UI.
+- Optional: SMTP credentials for email delivery, or Docker for the container setup.
+
+### 1. Configure the application (all systems)
+
+Create a file named `.env` in the project root using your text editor. There is
+currently no `.env.example` in this checkout. Paste the following and replace the
+placeholder values with your credentials:
+
+```dotenv
+GUARD_URL=https://your-guard-endpoint
+GUARD_TOKEN=your-team-token
+LLM_API_KEY=your-llm-api-key
+LLM_BASE_URL=https://api.openai.com/v1
+LLM_MODEL=gpt-4o-mini
+HOST=127.0.0.1
+PORT=8000
+```
+
+For another OpenAI-compatible provider, set its base URL and model, or specify
+`LLM_API_URL` as the full chat-completions endpoint. Keep `.env` private and ensure
+your editor does not save it as `.env.txt`. Restart the server after changing it.
+
+### 2. Install and run on your system
+
+The commands below use the virtual environment's Python directly; activation is
+not needed. Run the installation once, then use just the final command to start
+the app on later visits.
+
+#### Windows (PowerShell)
+
+Install Python 3.11+ with the Python launcher, then open PowerShell in the project root:
+
+```powershell
+py -3 --version
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe server.py
+```
+
+Check that the version printed is at least 3.11. If `py` is unavailable but
+`python --version` reports a suitable version, use `python` instead of `py -3`
+for the first two commands.
+
+#### macOS (Terminal)
+
+Install Python 3.11+ first, then run from the project root:
 
 ```bash
-python -m venv .venv
+python3 --version
+python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
-cp .env.example .env     # add GUARD_URL, GUARD_TOKEN, LLM_API_KEY (+ optional SMTP)
-.venv/bin/python server.py            # serves UI + API on http://127.0.0.1:8000
+.venv/bin/python server.py
 ```
 
-Frontend: the backend serves the pre-built `frontend/dist/`. Only rebuild if you change it:
+Check that `python3` reports at least 3.11; if necessary, use the versioned command
+for your installed Python (for example, `python3.11`) to create `.venv`.
+
+#### Linux (Bash)
+
+Install Python 3.11+ using your distribution's package manager. On Debian/Ubuntu,
+if the distribution provides a suitable Python version, install the prerequisites with:
 
 ```bash
-cd frontend && npm install && npm run build
+sudo apt update
+sudo apt install python3 python3-venv python3-pip
 ```
 
-- UI: http://127.0.0.1:8000 · API docs: http://127.0.0.1:8000/docs
-- One worker only (sessions are in memory). Docker: `docker build -t athena . && docker run -p 8000:8000 --env-file .env athena`.
+Then run from the project root:
+
+```bash
+python3 --version
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python server.py
+```
+
+Check that `python3` reports at least 3.11. If your distribution's default is older,
+install a newer Python and its matching `venv` package, then use that interpreter
+to create `.venv`.
+
+### 3. Open the app
+
+- UI: http://127.0.0.1:8000
+- API docs: http://127.0.0.1:8000/docs
+- Local health: http://127.0.0.1:8000/health
+- Configuration readiness: http://127.0.0.1:8000/ready (returns 503 and the missing
+  settings when required credentials are absent; it does not validate credentials remotely).
+
+Leave the terminal running while using the app. Press `Ctrl+C` to stop it.
+Use one backend worker only because sessions are stored in memory. If port 8000
+is occupied, change `PORT` in `.env` and open the corresponding URL.
+
+### Optional: frontend development or rebuild (all systems)
+
+With Node.js 22.x and npm installed, run these commands from the project root:
+
+```text
+node --version
+npm --version
+npm --prefix frontend ci
+npm --prefix frontend run build
+```
+
+Restart the Python server and refresh the browser to use the rebuilt UI.
+For live frontend editing, stop any existing backend, then run `npm run dev` from
+the project root. It starts both the backend on port 8000 and Vite on
+http://127.0.0.1:5173. This assumes the default backend port; if you change it,
+set `VITE_API_BASE_URL` in `frontend/.env.local` to the backend URL.
+
+### Optional: Docker (all systems)
+
+With Docker installed and running and the root `.env` configured:
+
+```text
+docker build -t athena .
+docker run --rm -p 127.0.0.1:8000:8000 --env-file .env athena
+```
+
+Open http://127.0.0.1:8000. Docker builds the frontend and installs Python
+dependencies inside the image; local Python and Node.js are not needed for this path.
+
+### Configuration reference
+
 - **Email alerts**: set the owner address and send the log from the **Event Stream** page. Real delivery needs SMTP in `.env`; otherwise alerts are recorded in the UI.
-
-Configuration:
-
 - `GUARD_URL`, `GUARD_TOKEN`: supplied Guard endpoint and team token.
 - `LLM_API_KEY`: completion credentials; `OPENAI_API_KEY` remains a fallback.
 - `LLM_API_URL`: optional full chat-completions endpoint. Otherwise use
@@ -109,9 +223,18 @@ comparison endpoint. Legacy UI labels do not yet distinguish REVIEW from BLOCK.
 
 ## Tests and demos
 
+From the project root on Windows (PowerShell):
+
 ```powershell
-.venv/Scripts/python -m pytest -q -p no:cacheprovider
-.venv/Scripts/python demo.py --offline --auto
+.\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider
+.\.venv\Scripts\python.exe demo.py --offline --auto
+```
+
+On macOS or Linux:
+
+```bash
+.venv/bin/python -m pytest -q -p no:cacheprovider
+.venv/bin/python demo.py --offline --auto
 ```
 
 Normal tests use mocked Guard/LLM clients and forbid network calls. Unit tests,
@@ -119,8 +242,14 @@ integration tests and live tests are separated. Live tests are skipped by defaul
 
 ```powershell
 $env:RUN_LIVE_GUARD_TESTS='1'
-.venv/Scripts/python -m pytest tests/live -q -p no:cacheprovider
+.\.venv\Scripts\python.exe -m pytest tests/live -q -p no:cacheprovider
 Remove-Item Env:RUN_LIVE_GUARD_TESTS
+```
+
+On macOS or Linux:
+
+```bash
+RUN_LIVE_GUARD_TESTS=1 .venv/bin/python -m pytest tests/live -q -p no:cacheprovider
 ```
 
 That opt-in test makes one benign Guard request. To compare the four findings live,
