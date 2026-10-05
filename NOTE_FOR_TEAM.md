@@ -7,7 +7,7 @@ what we built, and how we'll demo it. Short version at the top, detail below.
 
 The Guard reads **words**. If you **encode** your attack (base64, hex, number
 codes), the Guard can't read it and **waves it through** — even genuinely
-dangerous stuff. We built **Model Armor**, a thin layer that sits in front of the
+dangerous stuff. We built **Athena Shield**, a thin layer that sits in front of the
 Guard, **decodes** the hidden payload, **reassembles** attacks split across
 messages, and **fails closed** when the Guard is unsure. Then it asks the Guard
 again — now with text it can actually read. Result: the attacks that bypassed the
@@ -32,7 +32,7 @@ All three: **blocked in plaintext, allowed when encoded.** That's the hole.
 other languages — so our story is precise: *the gap is encoding into another
 alphabet*, not "the Guard is useless".)
 
-## Our solution — Model Armor (3 layers)
+## Our solution — Athena Shield (3 layers)
 
 1. **Normalization + decoding** — strip hidden characters, then decode base64 /
    hex / decimal char-codes / ROT13 (even nested), and check the *revealed* text.
@@ -41,14 +41,14 @@ alphabet*, not "the Guard is useless".)
 3. **Fail-closed policy** — if the Guard says `partial` or is down, we **block** by
    default instead of letting things slip through.
 
-It's a wrapper: user → **Armor** → Guard → LLM → **Armor** → Guard → user.
+It's a wrapper: user → **Athena Shield** → Guard → LLM → **Athena Shield** → Guard → user.
 
 ## How this answers the three required deliverables
 
 | The brief asks for… | We show… |
 |---|---|
 | (a) a weakness in the Guard | Encoded attacks (incl. harmful ones) pass the Guard as `allowed:true` |
-| (b) our system fixing it | Model Armor decodes/reassembles and **blocks** those same attacks |
+| (b) our system fixing it | Athena Shield decodes/reassembles and **blocks** those same attacks |
 | (c) a working demo with Guard + LLM | A CLI demo + a planted fake-secret "leak" through the raw Guard vs blocked by Armor |
 
 ## How we'll demo (command line)
@@ -56,7 +56,7 @@ It's a wrapper: user → **Armor** → Guard → LLM → **Armor** → Guard →
 - **`python demo.py`** — runs the whole story in 4 acts (encoding bypass ×3,
   multi-turn split, fail-open vs fail-closed, and a live fake-secret leak).
 - **`python check.py "<text>"`** — type anything a judge suggests, see Guard vs
-  Armor instantly.
+  Athena Shield instantly.
 - **`DEMO_COMMANDS.md`** — every command + payload, ready to copy-paste.
 
 The `note` under each preset and the README's weakness table give us the lines to say.
